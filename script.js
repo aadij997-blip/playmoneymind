@@ -8,6 +8,38 @@ if (toggle && nav) {
   });
 }
 
+const storyPhotos = document.querySelector("[data-story-photos]");
+if (storyPhotos) {
+  const pairs = [...storyPhotos.querySelectorAll("[data-story-pair]")];
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let index = 0;
+  let timer = 0;
+
+  const show = (next) => {
+    pairs[index].classList.remove("is-active");
+    pairs[index].setAttribute("aria-hidden", "true");
+    index = (next + pairs.length) % pairs.length;
+    pairs[index].classList.add("is-active");
+    pairs[index].removeAttribute("aria-hidden");
+  };
+
+  const schedule = () => {
+    window.clearTimeout(timer);
+    if (reduceMotion || document.hidden || pairs.length < 2) return;
+    timer = window.setTimeout(() => {
+      show(index + 1);
+      schedule();
+    }, 2750);
+  };
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) window.clearTimeout(timer);
+    else schedule();
+  });
+
+  schedule();
+}
+
 const quoteRotator = document.querySelector("[data-quote-rotator]");
 if (quoteRotator) {
   const slides = [...quoteRotator.querySelectorAll(".quote-slide")];

@@ -333,6 +333,7 @@ input, textarea, select {
   .split, .product, .stats, .grid-2, .grid-3, .people { grid-template-columns: 1fr; }
   .hero::before, .hero::after { opacity: 0.85; }
   .home-hero-grid, .path-row, .story-grid, .award-row, .proof-row { grid-template-columns: 1fr; }
+  .story-photos { min-height: 0; aspect-ratio: 3 / 2; max-height: none; }
   .metric-row { grid-template-columns: 1fr; }
   .fact-row { grid-template-columns: 1fr 1fr; }
   .product-shots { grid-template-columns: 1fr; }
@@ -692,6 +693,49 @@ img.photo-slot.photo-slot-short {
   grid-template-columns: 1.05fr 0.95fr;
   gap: 2rem;
   align-items: center;
+}
+
+.story-photos {
+  position: relative;
+  width: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  min-height: 380px;
+  aspect-ratio: 3 / 2;
+  background: #111;
+}
+
+.story-pair {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.9s ease, visibility 0s linear 0.9s;
+  pointer-events: none;
+}
+
+.story-pair.is-active {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.9s ease, visibility 0s linear 0s;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.story-pair img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 35%;
+  display: block;
+  border-radius: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-pair { transition: none; }
 }
 
 .home-story h2,

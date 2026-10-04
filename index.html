@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=51" />
+    <link rel="stylesheet" href="styles.css?v=56" />
   </head>
   <body class="home">
     <div class="promo">Limited Time! Purchase Two Games for Free Shipping</div>
@@ -203,7 +203,20 @@
 
     <section class="home-story">
       <div class="wrap story-grid">
-        <img class="photo-slot" src="assets/home-story.jpg" alt="The MoneyMind Games team standing in front of a presentation of the logo" />
+        <div class="story-photos" data-story-photos aria-label="Our Story photos">
+          <div class="story-pair is-active" data-story-pair>
+            <img src="assets/our-story-1.jpg" alt="Kids playing InvestQuest at a table with play money and cards" width="1500" height="2000" />
+            <img src="assets/our-story-2.jpg" alt="Educators playing InvestQuest together around a workshop table" width="1500" height="2000" />
+          </div>
+          <div class="story-pair" data-story-pair aria-hidden="true">
+            <img src="assets/our-story-3.jpg" alt="Two players at a MoneyMind Games event with InvestQuest on the table" width="1500" height="2000" />
+            <img src="assets/our-story-4.jpg" alt="MoneyMind Games booth with InvestQuest boxes and impact posters" width="1500" height="2000" />
+          </div>
+          <div class="story-pair" data-story-pair aria-hidden="true">
+            <img src="assets/our-story-5.jpg" alt="The MoneyMind Games team on stage after winning DECA ICDC" width="1500" height="2000" />
+            <img src="assets/our-story-6.jpg" alt="Kids playing InvestQuest at a library table" width="1500" height="2000" />
+          </div>
+        </div>
         <div>
           <h2>Our <span class="green">Story</span></h2>
           <p>MoneyMind Games didn't start in a boardroom. It started in a high school business class, with one question: what if learning personal finance could be as fun as playing a game?</p>
@@ -241,7 +254,7 @@
             <p>Financial Literacy Project</p>
           </article>
           <article>
-            <img class="photo-slot photo-slot-short" src="assets/award-capital.jpg" alt="The team with The Capital Cup trophy" />
+            <img class="photo-slot photo-slot-short" src="assets/award-capital.jpg?v=2" alt="The team with The Capital Cup trophy" />
             <p class="place">1st Place</p>
             <h3>The Capital Cup</h3>
             <p>Entrepreneurial Challenge</p>
@@ -273,6 +286,6 @@
         </div>
       </div>
     </footer>
-    <script src="script.js?v=3"></script>
+    <script src="script.js?v=9"></script>
   </body>
 </html>
