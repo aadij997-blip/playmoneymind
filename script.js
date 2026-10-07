@@ -357,7 +357,7 @@ const renderCart = () => {
     const charge = chargeFor(count);
     return `
       <div class="cart-line">
-        <img src="assets/product-1.png" alt="" />
+        <img src="assets/shop-home-iq-1.jpg" alt="" />
         <div>
           <strong>${PRODUCT_NAME}</strong>
           <p>${money(UNIT_CENTS)}</p>
