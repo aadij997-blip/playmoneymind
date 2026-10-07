@@ -49,24 +49,34 @@ const formatAddress = (address = {}) => {
   return line.join("\n");
 };
 
-const purchaserFromOrder = (order = {}) => {
+const clean = (value) => String(value || "").trim();
+
+const purchaserFrom = (order = {}, payment = {}, customer = {}) => {
   const fulfillments = Array.isArray(order.fulfillments) ? order.fulfillments : [];
   const shipment = fulfillments.find((item) => item.type === "SHIPMENT") || fulfillments[0] || {};
   const recipient =
     shipment.shipment_details?.recipient ||
     shipment.pickup_details?.recipient ||
     {};
-  const address = recipient.address || {};
-  const name = String(
+  const shipAddress = recipient.address || payment.shipping_address || {};
+  const name = clean(
     recipient.display_name ||
-    [address.first_name, address.last_name].filter(Boolean).join(" ") ||
-    ""
-  ).trim();
+    [shipAddress.first_name, shipAddress.last_name].filter(Boolean).join(" ") ||
+    [customer.given_name, customer.family_name].filter(Boolean).join(" ")
+  );
   return {
     name: name || "InvestQuest buyer",
-    email: String(recipient.email_address || "").trim(),
-    phone: String(recipient.phone_number || "").trim(),
-    address: formatAddress(address)
+    email: clean(
+      recipient.email_address ||
+      payment.buyer_email_address ||
+      customer.email_address
+    ),
+    phone: clean(
+      recipient.phone_number ||
+      customer.phone_number ||
+      (Array.isArray(customer.phone_numbers) ? customer.phone_numbers[0]?.phone_number : "")
+    ),
+    address: formatAddress(shipAddress)
   };
 };
 
@@ -81,6 +91,7 @@ const lineSummary = (order = {}) => {
 const loadOrderBundle = async (env, orderId, paymentId) => {
   let order = null;
   let payment = null;
+  let customer = null;
 
   if (orderId) {
     const loaded = await square(env, `/v2/orders/${orderId}`);
@@ -102,26 +113,34 @@ const loadOrderBundle = async (env, orderId, paymentId) => {
     if (loaded.response.ok) payment = loaded.body?.payment || null;
   }
 
-  return { order, payment };
+  const customerId = payment?.customer_id || order?.customer_id;
+  if (customerId) {
+    const loaded = await square(env, `/v2/customers/${customerId}`);
+    if (loaded.response.ok) customer = loaded.body?.customer || null;
+  }
+
+  return { order, payment, customer };
 };
 
 // Returns purchaser contact from the paid Square order so the site can email
 // the shop. Square's own merchant notice often shows the business-profile
-// name (e.g. Heather Diamond) and omits buyer contact fields.
+// name and omits buyer contact fields.
 const handleNotify = async (env, orderId, paymentId, origin) => {
   if (!orderId && !paymentId) {
     return json({ error: "Missing Square order or payment id." }, 400, origin);
   }
 
-  const { order, payment } = await loadOrderBundle(env, orderId, paymentId);
+  const { order, payment, customer } = await loadOrderBundle(env, orderId, paymentId);
   if (!order?.id) {
     return json({ error: "Square order was not found." }, 404, origin);
   }
 
-  const buyer = purchaserFromOrder(order);
+  const buyer = purchaserFrom(order, payment, customer);
   const paymentIdResolved = payment?.id || order.tenders?.[0]?.payment_id || paymentId || "";
+  const ready = Boolean(buyer.email || buyer.phone || buyer.address);
   return json({
     ok: true,
+    ready,
     shopEmail: SHOP_EMAIL,
     buyer,
     product: lineSummary(order),
@@ -168,7 +187,7 @@ const createCheckoutLink = async (env, qty, origin) => {
   // Stamp the Square order id onto the return URL so the thank-you page can
   // load the purchaser from that order instead of the business-profile name.
   if (paymentLink.id && paymentLink.order_id && paymentLink.version != null) {
-    await square(env, `/v2/online-checkout/payment-links/${paymentLink.id}`, {
+    const updated = await square(env, `/v2/online-checkout/payment-links/${paymentLink.id}`, {
       payment_link: {
         version: paymentLink.version,
         checkout_options: {
@@ -179,6 +198,9 @@ const createCheckoutLink = async (env, qty, origin) => {
         }
       }
     }, "PUT");
+    if (!updated.response.ok) {
+      return json({ error: "Square checkout didn’t open. Try again." }, 502, origin);
+    }
   }
 
   return json({ url, orderId: paymentLink.order_id || "" }, 200, origin);

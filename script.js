@@ -465,51 +465,70 @@ if (checkoutForm) {
   const params = new URLSearchParams(location.search);
   if (!readQty()) writeQty(1);
 
+  const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+  const loadOrderDetails = async (orderId, paymentId) => {
+    const response = await fetch(payUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "notify", orderId, paymentId })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok || !payload.buyer) return null;
+    return payload;
+  };
+
+  const emailShop = async (payload) => {
+    const buyer = payload.buyer;
+    if (!buyer?.email && !buyer?.phone && !buyer?.address) return false;
+    const mail = await fetch("https://formsubmit.co/ajax/gamesmoneymind@gmail.com", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        name: buyer.name,
+        email: buyer.email,
+        phone: buyer.phone,
+        address: buyer.address,
+        product: payload.product,
+        total: payload.total,
+        order_id: payload.orderId,
+        payment_id: payload.paymentId,
+        _replyto: buyer.email || "gamesmoneymind@gmail.com",
+        _subject: `New InvestQuest order from ${buyer.name}`,
+        _template: "table",
+        _captcha: "false",
+        message: [
+          `Purchaser: ${buyer.name}`,
+          buyer.email ? `Email: ${buyer.email}` : "Email: not provided",
+          buyer.phone ? `Phone: ${buyer.phone}` : "Phone: not provided",
+          buyer.address ? `Ship to:\n${buyer.address}` : "Shipping address: not provided",
+          "",
+          payload.product || PRODUCT_NAME,
+          `Total: ${payload.total || ""}`,
+          payload.orderId ? `Square order: ${payload.orderId}` : "",
+          payload.paymentId ? `Square payment: ${payload.paymentId}` : ""
+        ].filter(Boolean).join("\n")
+      })
+    });
+    const mailBody = await mail.json().catch(() => ({}));
+    return mail.ok && mailBody.success !== false && String(mailBody.success) !== "false";
+  };
+
+  // Square can redirect a moment before the order recipient is fully written.
+  // Retry until purchaser contact is present, then email the shop.
   const notifyShop = async () => {
     const orderId = params.get("orderId") || params.get("order_id") || "";
     const paymentId = params.get("transactionId") || params.get("paymentId") || "";
     if (!payUrl || (!orderId && !paymentId)) return false;
     try {
-      const response = await fetch(payUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "notify", orderId, paymentId })
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.ok || !payload.buyer) return false;
-
-      const buyer = payload.buyer;
-      const mail = await fetch("https://formsubmit.co/ajax/gamesmoneymind@gmail.com", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          name: buyer.name,
-          email: buyer.email,
-          phone: buyer.phone,
-          address: buyer.address,
-          product: payload.product,
-          total: payload.total,
-          order_id: payload.orderId,
-          payment_id: payload.paymentId,
-          _replyto: buyer.email || "gamesmoneymind@gmail.com",
-          _subject: `New InvestQuest order from ${buyer.name}`,
-          _template: "table",
-          _captcha: "false",
-          message: [
-            `Purchaser: ${buyer.name}`,
-            buyer.email ? `Email: ${buyer.email}` : "Email: not provided",
-            buyer.phone ? `Phone: ${buyer.phone}` : "Phone: not provided",
-            buyer.address ? `Ship to:\n${buyer.address}` : "Shipping address: not provided",
-            "",
-            payload.product || PRODUCT_NAME,
-            `Total: ${payload.total || ""}`,
-            payload.orderId ? `Square order: ${payload.orderId}` : "",
-            payload.paymentId ? `Square payment: ${payload.paymentId}` : ""
-          ].filter(Boolean).join("\n")
-        })
-      });
-      const mailBody = await mail.json().catch(() => ({}));
-      return mail.ok && mailBody.success !== false && String(mailBody.success) !== "false";
+      let payload = null;
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        payload = await loadOrderDetails(orderId, paymentId);
+        if (payload?.ready || payload?.buyer?.email) break;
+        await sleep(1500);
+      }
+      if (!payload?.buyer) return false;
+      return emailShop(payload);
     } catch {
       return false;
     }
