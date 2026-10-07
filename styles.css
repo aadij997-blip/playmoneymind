@@ -74,7 +74,7 @@ a { color: inherit; }
   font-size: 0.98rem;
 }
 
-.nav a[aria-current="page"] { color: var(--green); }
+.nav a[aria-current="page"]:not(.btn) { color: var(--green); }
 
 .wrap {
   width: min(var(--max), calc(100% - 2rem));
