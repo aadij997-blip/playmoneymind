@@ -13,7 +13,10 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  overflow-x: clip;
+}
 
 body {
   margin: 0;
@@ -22,6 +25,7 @@ body {
   font-family: "Outfit", "Avenir Next", "Segoe UI", sans-serif;
   font-size: 1.05rem;
   line-height: 1.55;
+  overflow-x: clip;
 }
 
 img { max-width: 100%; display: block; }
@@ -873,6 +877,20 @@ img.photo-slot.photo-slot-short {
 .home-close .actions { justify-content: center; }
 
 .home-close .btn.ghost { background: transparent; }
+
+@media (max-width: 860px) {
+  .home-hero-grid,
+  .path-row,
+  .story-grid,
+  .award-row,
+  .proof-row { grid-template-columns: 1fr; }
+  .story-photos { min-height: 0; aspect-ratio: 3 / 2; max-height: none; }
+  .metric-row { grid-template-columns: 1fr; }
+  .metric-row strong { white-space: normal; }
+  .fact-row { grid-template-columns: 1fr 1fr; }
+  .product-shots { grid-template-columns: 1fr; }
+  .home .photo-slot { min-height: 0; height: auto; }
+}
 
 .problem { --max: 1160px; }
 
