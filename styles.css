@@ -610,7 +610,7 @@ img.photo-slot.photo-slot-short {
   background: var(--card);
   color: var(--card-fg);
   border-radius: 18px;
-  padding: 0.9rem 1rem 1.15rem;
+  padding: 1rem 1.1rem 1.35rem;
 }
 
 .quote-slides { overflow: hidden; }
@@ -624,8 +624,11 @@ img.photo-slot.photo-slot-short {
   flex: 0 0 100%;
   min-width: 100%;
   display: flex;
-  align-items: center;
-  gap: 0.85rem;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+  padding-right: 0.25rem;
+  padding-bottom: 0.35rem;
 }
 
 .quote-arrow {
@@ -701,13 +704,6 @@ img.photo-slot.photo-slot-short {
   .gap-media img { transition: none; }
   .gap-row article:hover .gap-media img,
   .gap-row article:focus-within .gap-media img { transform: none; }
-}
-
-.quote-portrait {
-  width: 64px;
-  height: 64px;
-  flex: none;
-  border-radius: 50%;
 }
 
 .featured-quote p { margin: 0; font-size: 0.95rem; line-height: 1.35; }
