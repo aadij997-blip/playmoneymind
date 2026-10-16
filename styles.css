@@ -440,13 +440,17 @@ input, textarea, select {
 .hero-media.is-paused .hero-playback .hero-playback-pause { display: none; }
 .hero-media.is-paused .hero-playback .hero-playback-play { display: block; }
 
-.hero-media:hover .hero-playback,
-.hero-media.is-paused .hero-playback {
+.hero-media:hover .hero-playback {
+  opacity: 0.72;
+}
+
+/* Only show the play icon after we know autoplay didn't start (avoids a Safari flash) */
+.hero-media.is-paused.is-autoplay-blocked .hero-playback {
   opacity: 0.72;
 }
 
 @media (hover: none) {
-  .hero-media.is-paused .hero-playback {
+  .hero-media.is-paused.is-autoplay-blocked .hero-playback {
     opacity: 0.72;
   }
 }

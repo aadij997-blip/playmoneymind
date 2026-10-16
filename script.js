@@ -16,7 +16,7 @@ if (heroMedia && heroVideo && heroSound) {
   const label = heroSound.querySelector("[data-hero-sound-label]");
   let userPaused = false;
   let soundOn = false;
-  let bootTimer = 0;
+  let autoplayNudgeDone = false;
 
   const syncSoundUi = () => {
     heroSound.setAttribute("aria-pressed", String(!soundOn));
@@ -59,68 +59,39 @@ if (heroMedia && heroVideo && heroSound) {
     heroAudio.pause();
   };
 
-  const armSilentVideo = () => {
-    // Chrome allows muted files that still contain an audio track.
-    // Safari's default "Stop Media with Sound" only autoplays files with NO audio track.
-    // This file is silent; keep the element muted/playsinline for iOS + older WebKit.
+  // Important for Safari: do NOT spam video.play(). Competing play() calls abort
+  // Safari's native HTML autoplay. Let the autoplay attribute do the work; only
+  // nudge once if the video is still paused after it can play.
+  const nudgeAutoplayOnce = () => {
+    if (autoplayNudgeDone || userPaused || document.hidden || !heroVideo.paused) return;
+    autoplayNudgeDone = true;
     heroVideo.defaultMuted = true;
     heroVideo.muted = true;
-    heroVideo.setAttribute("muted", "");
     heroVideo.playsInline = true;
-    heroVideo.setAttribute("playsinline", "");
-    heroVideo.setAttribute("webkit-playsinline", "");
-  };
-
-  const tryPlay = () => {
-    if (userPaused || document.hidden) return Promise.resolve();
-    armSilentVideo();
-
     const attempt = heroVideo.play();
-    if (!attempt || typeof attempt.then !== "function") {
+    if (attempt && typeof attempt.catch === "function") {
+      attempt.then(syncPlaybackUi).catch(syncPlaybackUi);
+    } else {
       syncPlaybackUi();
-      if (!heroVideo.paused) playAudio();
-      return Promise.resolve();
     }
-
-    return attempt.then(() => {
-      syncPlaybackUi();
-      playAudio();
-    }).catch(() => {
-      // Safari often rejects the first play() with AbortError while the buffer fills.
-      // Chrome usually succeeds immediately — keep retrying briefly for Safari.
-      syncPlaybackUi();
-    });
-  };
-
-  const startBootRetries = () => {
-    window.clearInterval(bootTimer);
-    let ticks = 0;
-    // Localhost buffers almost instantly; production Safari often keeps rejecting
-    // play() until enough of the file arrives over the network. Keep trying longer.
-    bootTimer = window.setInterval(() => {
-      ticks += 1;
-      if (!heroVideo.paused || userPaused) {
-        window.clearInterval(bootTimer);
-        syncPlaybackUi();
-        return;
-      }
-      if (ticks > 240) {
-        window.clearInterval(bootTimer);
-        syncPlaybackUi();
-        return;
-      }
-      tryPlay();
-    }, 250);
   };
 
   const togglePlayback = () => {
     if (heroVideo.paused) {
       userPaused = false;
-      tryPlay();
-      startBootRetries();
+      autoplayNudgeDone = false;
+      const attempt = heroVideo.play();
+      if (attempt && typeof attempt.catch === "function") {
+        attempt.then(() => {
+          syncPlaybackUi();
+          playAudio();
+        }).catch(syncPlaybackUi);
+      } else {
+        syncPlaybackUi();
+        playAudio();
+      }
     } else {
       userPaused = true;
-      window.clearInterval(bootTimer);
       heroVideo.pause();
       pauseAudio();
       syncPlaybackUi();
@@ -146,14 +117,13 @@ if (heroMedia && heroVideo && heroSound) {
     if (soundOn) playAudio();
     else pauseAudio();
     if (heroVideo.paused && !userPaused) {
-      tryPlay();
-      startBootRetries();
+      autoplayNudgeDone = false;
+      nudgeAutoplayOnce();
     }
     syncSoundUi();
   });
 
   heroVideo.addEventListener("playing", () => {
-    window.clearInterval(bootTimer);
     syncPlaybackUi();
     playAudio();
   });
@@ -161,61 +131,43 @@ if (heroMedia && heroVideo && heroSound) {
   heroVideo.addEventListener("pause", () => {
     pauseAudio();
     syncPlaybackUi();
-    // Safari often emits a transient pause while buffering. Chrome usually doesn't.
-    // Retry on the next tick so we don't re-enter play()/pause() synchronously.
-    if (!userPaused && !document.hidden) {
-      window.setTimeout(() => {
-        if (!userPaused && !document.hidden && heroVideo.paused) tryPlay();
-      }, 60);
-    }
   });
   heroVideo.addEventListener("seeked", syncAudioToVideo);
   heroVideo.addEventListener("timeupdate", syncAudioToVideo);
-  heroVideo.addEventListener("loadedmetadata", tryPlay);
-  heroVideo.addEventListener("loadeddata", tryPlay);
-  heroVideo.addEventListener("canplay", tryPlay);
-  heroVideo.addEventListener("canplaythrough", tryPlay);
-  heroVideo.addEventListener("progress", () => {
-    if (!userPaused && heroVideo.paused) tryPlay();
-  });
+  heroVideo.addEventListener("canplay", nudgeAutoplayOnce);
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       pauseAudio();
-    } else if (!userPaused) {
-      tryPlay();
-      startBootRetries();
+      return;
+    }
+    if (!userPaused && heroVideo.paused) {
+      autoplayNudgeDone = false;
+      nudgeAutoplayOnce();
     }
   });
 
-  // Safari blocks autoplay per-website. Localhost and playmoneymind.com are
-  // different sites. Any first gesture (including Cmd) unlocks media — mirror
-  // that so production starts as soon as the user touches the page.
-  const unlockFromGesture = () => {
-    if (userPaused || !heroVideo.paused) return;
-    tryPlay();
-    startBootRetries();
-  };
-  ["pointerdown", "touchstart", "keydown"].forEach((evtName) => {
-    document.addEventListener(evtName, unlockFromGesture, { passive: true });
-  });
-
-  if ("IntersectionObserver" in window) {
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && !userPaused) {
-          tryPlay();
-          startBootRetries();
-        }
-      });
-    }, { threshold: 0.2 });
-    io.observe(heroMedia);
-  }
-
-  armSilentVideo();
+  // Prepare silent autoplay flags before the browser's own autoplay runs.
+  heroVideo.defaultMuted = true;
+  heroVideo.muted = true;
+  heroVideo.playsInline = true;
   syncSoundUi();
-  tryPlay();
-  startBootRetries();
+  syncPlaybackUi();
+
+  // If the file is already buffered (common on repeat visits), nudge once.
+  if (heroVideo.readyState >= 3) nudgeAutoplayOnce();
+
+  // Reveal the play icon only if autoplay truly never started.
+  window.setTimeout(() => {
+    if (heroVideo.paused && !userPaused) {
+      heroMedia.classList.add("is-autoplay-blocked");
+      syncPlaybackUi();
+    }
+  }, 2500);
+
+  heroVideo.addEventListener("playing", () => {
+    heroMedia.classList.remove("is-autoplay-blocked");
+  });
 }
 
 const storyPhotos = document.querySelector("[data-story-photos]");
