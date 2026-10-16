@@ -12,9 +12,11 @@ const heroMedia = document.querySelector("[data-hero-media]");
 const heroVideo = document.getElementById("heroVideo") || document.querySelector("[data-hero-video]");
 const unmuteBtn = document.getElementById("unmuteBtn") || document.querySelector("[data-hero-sound]");
 const heroStart = document.querySelector("[data-hero-start]");
+const heroPoster = document.querySelector("[data-hero-poster]");
 if (heroMedia && heroVideo && unmuteBtn) {
   const label = unmuteBtn.querySelector("[data-hero-sound-label]");
   let hasStarted = false;
+  let autoplayChecked = false;
 
   const syncSoundUi = () => {
     const muted = heroVideo.muted;
@@ -24,10 +26,13 @@ if (heroMedia && heroVideo && unmuteBtn) {
   };
 
   const syncPlaybackUi = () => {
-    const waitingToStart = heroVideo.paused && !hasStarted;
+    // Wait until autoplay has had time to succeed before showing the start prompt,
+    // so normal loads don't flash "Press to start".
+    const waitingToStart = autoplayChecked && heroVideo.paused && !hasStarted;
     heroMedia.classList.toggle("is-paused", heroVideo.paused);
     heroMedia.classList.toggle("is-start-blocked", waitingToStart);
     if (heroStart) heroStart.hidden = !waitingToStart;
+    if (heroPoster) heroPoster.hidden = !waitingToStart;
   };
 
   const startPlayback = () => {
@@ -35,6 +40,7 @@ if (heroMedia && heroVideo && unmuteBtn) {
     if (playAttempt && typeof playAttempt.catch === "function") {
       playAttempt.then(() => {
         hasStarted = true;
+        autoplayChecked = true;
         syncPlaybackUi();
       }).catch(syncPlaybackUi);
     } else {
@@ -63,15 +69,20 @@ if (heroMedia && heroVideo && unmuteBtn) {
 
   heroVideo.addEventListener("playing", () => {
     hasStarted = true;
+    autoplayChecked = true;
     syncPlaybackUi();
   });
   heroVideo.addEventListener("play", syncPlaybackUi);
   heroVideo.addEventListener("pause", syncPlaybackUi);
 
-  // If autoplay is blocked (Low Power Mode), show the poster + "Press to start".
-  window.setTimeout(syncPlaybackUi, 700);
   syncSoundUi();
   syncPlaybackUi();
+
+  // Only reveal the blocked-autoplay UI after autoplay has had a fair chance.
+  window.setTimeout(() => {
+    autoplayChecked = true;
+    syncPlaybackUi();
+  }, 1200);
 }
 
 const storyPhotos = document.querySelector("[data-story-photos]");
