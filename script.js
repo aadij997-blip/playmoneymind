@@ -11,12 +11,10 @@ if (toggle && nav) {
 const heroMedia = document.querySelector("[data-hero-media]");
 const heroVideo = document.getElementById("heroVideo") || document.querySelector("[data-hero-video]");
 const unmuteBtn = document.getElementById("unmuteBtn") || document.querySelector("[data-hero-sound]");
-const heroStart = document.querySelector("[data-hero-start]");
-const heroPoster = document.querySelector("[data-hero-poster]");
 if (heroMedia && heroVideo && unmuteBtn) {
   const label = unmuteBtn.querySelector("[data-hero-sound-label]");
   let hasStarted = false;
-  let autoplayChecked = false;
+  let startBlocked = false;
 
   const syncSoundUi = () => {
     const muted = heroVideo.muted;
@@ -26,13 +24,11 @@ if (heroMedia && heroVideo && unmuteBtn) {
   };
 
   const syncPlaybackUi = () => {
-    // Wait until autoplay has had time to succeed before showing the start prompt,
-    // so normal loads don't flash "Press to start".
-    const waitingToStart = autoplayChecked && heroVideo.paused && !hasStarted;
+    // Once autoplay is confirmed blocked, keep poster + copy latched until real playback.
+    // Transient play/pause events from failed autoplay attempts must not hide it.
+    if (hasStarted) startBlocked = false;
     heroMedia.classList.toggle("is-paused", heroVideo.paused);
-    heroMedia.classList.toggle("is-start-blocked", waitingToStart);
-    if (heroStart) heroStart.hidden = !waitingToStart;
-    if (heroPoster) heroPoster.hidden = !waitingToStart;
+    heroMedia.classList.toggle("is-start-blocked", startBlocked);
   };
 
   const startPlayback = () => {
@@ -40,11 +36,12 @@ if (heroMedia && heroVideo && unmuteBtn) {
     if (playAttempt && typeof playAttempt.catch === "function") {
       playAttempt.then(() => {
         hasStarted = true;
-        autoplayChecked = true;
+        startBlocked = false;
         syncPlaybackUi();
       }).catch(syncPlaybackUi);
-    } else {
-      hasStarted = !heroVideo.paused;
+    } else if (!heroVideo.paused) {
+      hasStarted = true;
+      startBlocked = false;
       syncPlaybackUi();
     }
   };
@@ -69,7 +66,7 @@ if (heroMedia && heroVideo && unmuteBtn) {
 
   heroVideo.addEventListener("playing", () => {
     hasStarted = true;
-    autoplayChecked = true;
+    startBlocked = false;
     syncPlaybackUi();
   });
   heroVideo.addEventListener("play", syncPlaybackUi);
@@ -78,11 +75,15 @@ if (heroMedia && heroVideo && unmuteBtn) {
   syncSoundUi();
   syncPlaybackUi();
 
-  // Only reveal the blocked-autoplay UI after autoplay has had a fair chance.
+  // Reveal blocked UI only after autoplay has had time to win. Then latch it.
   window.setTimeout(() => {
-    autoplayChecked = true;
-    syncPlaybackUi();
-  }, 1200);
+    if (!hasStarted && heroVideo.paused) {
+      startBlocked = true;
+      // Stop further silent autoplay kicks from fighting this state.
+      heroMedia.dataset.autoplayBlocked = "1";
+      syncPlaybackUi();
+    }
+  }, 1400);
 }
 
 const storyPhotos = document.querySelector("[data-story-photos]");

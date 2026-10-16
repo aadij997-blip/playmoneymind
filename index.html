@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=89" />
+    <link rel="stylesheet" href="styles.css?v=90" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -89,6 +89,7 @@
             // Safari-only layout kick: Chrome retries autoplay after layout; Safari often
             // decides once while the video box is still 0×0. One muted play() after paint.
             (function () {
+              var media = document.querySelector("[data-hero-media]");
               var v = document.getElementById("heroVideo");
               if (!v) return;
               v.muted = true;
@@ -98,6 +99,7 @@
               var kicked = false;
               function kick() {
                 if (kicked || !v.paused) return;
+                if (media && media.dataset.autoplayBlocked === "1") return;
                 if (v.clientWidth < 2 || v.clientHeight < 2) return;
                 kicked = true;
                 var p = v.play();
@@ -109,7 +111,6 @@
                 requestAnimationFrame(kick);
               });
               setTimeout(kick, 500);
-              setTimeout(kick, 1500);
             })();
           </script>
           <img
@@ -117,9 +118,8 @@
             data-hero-poster
             src="assets/investquest-commercial-poster.jpg"
             alt=""
-            hidden
           />
-          <div class="hero-start" data-hero-start hidden>
+          <div class="hero-start" data-hero-start>
             <p class="hero-start-label">
               <span class="hero-start-title">Press to start</span>
               <span class="hero-start-note">Autoplay is off — often from Low Power Mode or browser settings</span>
@@ -347,6 +347,6 @@
         </div>
       </div>
     </footer>
-    <script src="script.js?v=22"></script>
+    <script src="script.js?v=23"></script>
   </body>
 </html>
