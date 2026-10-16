@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Safari autoplay test | MoneyMind Games</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; background: #111; color: #fff; }
+      video { width: min(900px, 100%); height: auto; background: #000; display: block; }
+      p { max-width: 40rem; line-height: 1.5; }
+      code { color: #93d12e; }
+    </style>
+  </head>
+  <body>
+    <h1>Bare Safari autoplay test</h1>
+    <p>
+      This page is only the standard muted autoplay tag — no site CSS/JS.
+      If this plays in Safari, the file/settings are fine and the homepage layout was the blocker.
+      If this also stays paused, Safari itself is blocking autoplay for this domain (or Low Power Mode is on).
+    </p>
+    <video
+      id="t"
+      autoplay
+      muted
+      loop
+      playsinline
+      webkit-playsinline
+      controls
+      preload="auto"
+      src="assets/investquest-commercial-hero.mp4"
+      width="1280"
+      height="720"
+    ></video>
+    <p id="status">Checking…</p>
+    <script>
+      var v = document.getElementById("t");
+      var s = document.getElementById("status");
+      function report(extra) {
+        s.textContent =
+          "paused=" + v.paused +
+          " muted=" + v.muted +
+          " readyState=" + v.readyState +
+          " size=" + v.clientWidth + "x" + v.clientHeight +
+          (extra ? " | " + extra : "");
+      }
+      v.addEventListener("playing", function () { report("playing"); });
+      v.addEventListener("pause", function () { report("paused event"); });
+      v.addEventListener("error", function () { report("error loading video"); });
+      setInterval(report, 1000);
+      report("loaded");
+    </script>
+  </body>
+</html>

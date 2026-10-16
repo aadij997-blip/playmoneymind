@@ -25,8 +25,7 @@ if (heroMedia && heroVideo && unmuteBtn) {
     heroMedia.classList.toggle("is-paused", heroVideo.paused);
   };
 
-  // Keep this tiny: browsers autoplay from the HTML attributes.
-  // Only toggle mute/pause from real user clicks.
+  // Click handlers only — do not call play() on load (Safari aborts native autoplay).
   unmuteBtn.addEventListener("click", (event) => {
     event.stopPropagation();
     heroVideo.muted = !heroVideo.muted;
@@ -52,10 +51,6 @@ if (heroMedia && heroVideo && unmuteBtn) {
   heroVideo.addEventListener("play", syncPlaybackUi);
   heroVideo.addEventListener("playing", syncPlaybackUi);
   heroVideo.addEventListener("pause", syncPlaybackUi);
-
-  heroVideo.muted = true;
-  heroVideo.defaultMuted = true;
-  heroVideo.playsInline = true;
   syncSoundUi();
   syncPlaybackUi();
 }
