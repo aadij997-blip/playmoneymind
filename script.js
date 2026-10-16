@@ -8,6 +8,136 @@ if (toggle && nav) {
   });
 }
 
+const heroMedia = document.querySelector("[data-hero-media]");
+const heroVideo = document.querySelector("[data-hero-video]");
+const heroSound = document.querySelector("[data-hero-sound]");
+if (heroMedia && heroVideo && heroSound) {
+  const label = heroSound.querySelector("[data-hero-sound-label]");
+  let userPaused = false;
+  let soundUnlocked = false;
+
+  const syncSoundUi = () => {
+    const muted = heroVideo.muted || heroVideo.volume === 0;
+    heroSound.setAttribute("aria-pressed", String(muted));
+    heroSound.setAttribute("aria-label", muted ? "Unmute video" : "Mute video");
+    if (label) label.textContent = muted ? "Unmute" : "Mute";
+  };
+
+  const syncPlaybackUi = () => {
+    const paused = heroVideo.paused;
+    heroMedia.classList.toggle("is-paused", paused);
+    heroMedia.setAttribute("aria-label", paused ? "Play video" : "Pause video");
+  };
+
+  const ensureMutedForAutoplay = () => {
+    // Safari only autoplays when muted stays true until a user gesture.
+    heroVideo.defaultMuted = true;
+    heroVideo.muted = true;
+    heroVideo.volume = 0;
+    heroVideo.setAttribute("muted", "");
+    heroVideo.playsInline = true;
+    heroVideo.setAttribute("playsinline", "");
+    heroVideo.setAttribute("webkit-playsinline", "");
+  };
+
+  const tryPlay = () => {
+    if (userPaused || document.hidden) return Promise.resolve();
+    if (!soundUnlocked) ensureMutedForAutoplay();
+
+    const attempt = heroVideo.play();
+    if (!attempt || typeof attempt.then !== "function") {
+      syncPlaybackUi();
+      return Promise.resolve();
+    }
+
+    return attempt.then(() => {
+      syncPlaybackUi();
+    }).catch(() => {
+      // Retry once after the next frame — Safari often rejects the first play()
+      // while the element is still resolving layout/source.
+      return new Promise((resolve) => {
+        window.requestAnimationFrame(() => {
+          if (userPaused || document.hidden) {
+            syncPlaybackUi();
+            resolve();
+            return;
+          }
+          if (!soundUnlocked) ensureMutedForAutoplay();
+          const retry = heroVideo.play();
+          if (!retry || typeof retry.then !== "function") {
+            syncPlaybackUi();
+            resolve();
+            return;
+          }
+          retry.then(() => {
+            syncPlaybackUi();
+            resolve();
+          }).catch(() => {
+            syncPlaybackUi();
+            resolve();
+          });
+        });
+      });
+    });
+  };
+
+  const togglePlayback = () => {
+    if (heroVideo.paused) {
+      userPaused = false;
+      tryPlay();
+    } else {
+      userPaused = true;
+      heroVideo.pause();
+      syncPlaybackUi();
+    }
+  };
+
+  heroMedia.addEventListener("click", (event) => {
+    if (event.target.closest("[data-hero-sound]")) return;
+    togglePlayback();
+  });
+
+  heroMedia.addEventListener("keydown", (event) => {
+    if (event.target.closest("[data-hero-sound]")) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      togglePlayback();
+    }
+  });
+
+  heroSound.addEventListener("click", (event) => {
+    event.stopPropagation();
+    soundUnlocked = true;
+    const shouldUnmute = heroVideo.muted || heroVideo.volume === 0;
+    if (shouldUnmute) {
+      heroVideo.muted = false;
+      heroVideo.removeAttribute("muted");
+      heroVideo.volume = 1;
+    } else {
+      heroVideo.muted = true;
+      heroVideo.volume = 0;
+      heroVideo.setAttribute("muted", "");
+    }
+    if (heroVideo.paused && !userPaused) tryPlay();
+    syncSoundUi();
+  });
+
+  heroVideo.addEventListener("playing", syncPlaybackUi);
+  heroVideo.addEventListener("play", syncPlaybackUi);
+  heroVideo.addEventListener("pause", syncPlaybackUi);
+  heroVideo.addEventListener("loadeddata", tryPlay);
+  heroVideo.addEventListener("canplay", tryPlay);
+  heroVideo.addEventListener("canplaythrough", tryPlay);
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && !userPaused) tryPlay();
+  });
+
+  ensureMutedForAutoplay();
+  syncSoundUi();
+  tryPlay();
+}
+
 const storyPhotos = document.querySelector("[data-story-photos]");
 if (storyPhotos) {
   const pairs = [...storyPhotos.querySelectorAll("[data-story-pair]")];
