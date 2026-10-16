@@ -16,6 +16,7 @@ if (heroMedia && heroVideo && heroSound) {
   const label = heroSound.querySelector("[data-hero-sound-label]");
   let userPaused = false;
   let soundOn = false;
+  let bootTimer = 0;
 
   const syncSoundUi = () => {
     heroSound.setAttribute("aria-pressed", String(!soundOn));
@@ -29,6 +30,15 @@ if (heroMedia && heroVideo && heroSound) {
     heroMedia.setAttribute("aria-label", paused ? "Play video" : "Pause video");
   };
 
+  const ensureAudioSrc = () => {
+    if (!heroAudio) return;
+    const src = heroAudio.getAttribute("data-src");
+    if (src && !heroAudio.getAttribute("src")) {
+      heroAudio.setAttribute("src", src);
+      heroAudio.load();
+    }
+  };
+
   const syncAudioToVideo = () => {
     if (!heroAudio || !soundOn) return;
     if (Math.abs(heroAudio.currentTime - heroVideo.currentTime) > 0.35) {
@@ -38,6 +48,7 @@ if (heroMedia && heroVideo && heroSound) {
 
   const playAudio = () => {
     if (!heroAudio || !soundOn || userPaused || heroVideo.paused) return;
+    ensureAudioSrc();
     try { heroAudio.currentTime = heroVideo.currentTime; } catch {}
     const attempt = heroAudio.play();
     if (attempt && typeof attempt.catch === "function") attempt.catch(() => {});
@@ -48,20 +59,26 @@ if (heroMedia && heroVideo && heroSound) {
     heroAudio.pause();
   };
 
-  const tryPlay = () => {
-    if (userPaused || document.hidden) return Promise.resolve();
-
-    // Keep the video element muted — audio lives in a separate element so Safari's
-    // default "Stop Media with Sound" setting still allows autoplay.
+  const armSilentVideo = () => {
+    // Chrome allows muted files that still contain an audio track.
+    // Safari's default "Stop Media with Sound" only autoplays files with NO audio track.
+    // This file is silent; keep the element muted/playsinline for iOS + older WebKit.
     heroVideo.defaultMuted = true;
     heroVideo.muted = true;
     heroVideo.setAttribute("muted", "");
     heroVideo.playsInline = true;
+    heroVideo.setAttribute("playsinline", "");
+    heroVideo.setAttribute("webkit-playsinline", "");
+  };
+
+  const tryPlay = () => {
+    if (userPaused || document.hidden) return Promise.resolve();
+    armSilentVideo();
 
     const attempt = heroVideo.play();
     if (!attempt || typeof attempt.then !== "function") {
       syncPlaybackUi();
-      playAudio();
+      if (!heroVideo.paused) playAudio();
       return Promise.resolve();
     }
 
@@ -69,38 +86,34 @@ if (heroMedia && heroVideo && heroSound) {
       syncPlaybackUi();
       playAudio();
     }).catch(() => {
-      return new Promise((resolve) => {
-        window.requestAnimationFrame(() => {
-          if (userPaused || document.hidden) {
-            syncPlaybackUi();
-            resolve();
-            return;
-          }
-          const retry = heroVideo.play();
-          if (!retry || typeof retry.then !== "function") {
-            syncPlaybackUi();
-            resolve();
-            return;
-          }
-          retry.then(() => {
-            syncPlaybackUi();
-            playAudio();
-            resolve();
-          }).catch(() => {
-            syncPlaybackUi();
-            resolve();
-          });
-        });
-      });
+      // Safari often rejects the first play() with AbortError while the buffer fills.
+      // Chrome usually succeeds immediately — keep retrying briefly for Safari.
+      syncPlaybackUi();
     });
+  };
+
+  const startBootRetries = () => {
+    window.clearInterval(bootTimer);
+    let ticks = 0;
+    bootTimer = window.setInterval(() => {
+      ticks += 1;
+      if (!heroVideo.paused || userPaused || ticks > 40) {
+        window.clearInterval(bootTimer);
+        syncPlaybackUi();
+        return;
+      }
+      tryPlay();
+    }, 250);
   };
 
   const togglePlayback = () => {
     if (heroVideo.paused) {
       userPaused = false;
       tryPlay();
+      startBootRetries();
     } else {
       userPaused = true;
+      window.clearInterval(bootTimer);
       heroVideo.pause();
       pauseAudio();
       syncPlaybackUi();
@@ -123,16 +136,17 @@ if (heroMedia && heroVideo && heroSound) {
   heroSound.addEventListener("click", (event) => {
     event.stopPropagation();
     soundOn = !soundOn;
-    if (soundOn) {
-      playAudio();
-    } else {
-      pauseAudio();
+    if (soundOn) playAudio();
+    else pauseAudio();
+    if (heroVideo.paused && !userPaused) {
+      tryPlay();
+      startBootRetries();
     }
-    if (heroVideo.paused && !userPaused) tryPlay();
     syncSoundUi();
   });
 
   heroVideo.addEventListener("playing", () => {
+    window.clearInterval(bootTimer);
     syncPlaybackUi();
     playAudio();
   });
@@ -140,22 +154,46 @@ if (heroMedia && heroVideo && heroSound) {
   heroVideo.addEventListener("pause", () => {
     pauseAudio();
     syncPlaybackUi();
+    // Safari often emits a transient pause while buffering. Chrome usually doesn't.
+    // Retry on the next tick so we don't re-enter play()/pause() synchronously.
+    if (!userPaused && !document.hidden) {
+      window.setTimeout(() => {
+        if (!userPaused && !document.hidden && heroVideo.paused) tryPlay();
+      }, 60);
+    }
   });
   heroVideo.addEventListener("seeked", syncAudioToVideo);
   heroVideo.addEventListener("timeupdate", syncAudioToVideo);
+  heroVideo.addEventListener("loadedmetadata", tryPlay);
   heroVideo.addEventListener("loadeddata", tryPlay);
   heroVideo.addEventListener("canplay", tryPlay);
+  heroVideo.addEventListener("canplaythrough", tryPlay);
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       pauseAudio();
     } else if (!userPaused) {
       tryPlay();
+      startBootRetries();
     }
   });
 
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !userPaused) {
+          tryPlay();
+          startBootRetries();
+        }
+      });
+    }, { threshold: 0.2 });
+    io.observe(heroMedia);
+  }
+
+  armSilentVideo();
   syncSoundUi();
   tryPlay();
+  startBootRetries();
 }
 
 const storyPhotos = document.querySelector("[data-story-photos]");

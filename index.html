@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=82" />
+    <link rel="stylesheet" href="styles.css?v=83" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -74,7 +74,7 @@
           <video
             class="hero-video"
             data-hero-video
-            src="assets/investquest-commercial-silent.mp4"
+            src="assets/investquest-commercial-silent.mp4#t=0.001"
             width="1280"
             height="720"
             autoplay
@@ -86,7 +86,8 @@
             disablepictureinpicture
             controlslist="nodownload noplaybackrate noremoteplayback"
           ></video>
-          <audio data-hero-audio src="assets/investquest-commercial-audio.m4a" preload="auto" loop></audio>
+          <!-- Audio src is attached only after Unmute so Safari doesn't treat the page as media-with-sound -->
+          <audio data-hero-audio data-src="assets/investquest-commercial-audio.m4a" preload="none" loop></audio>
           <span class="hero-playback" data-hero-playback aria-hidden="true">
             <svg class="hero-playback-pause" viewBox="0 0 24 24">
               <rect x="6.5" y="5.5" width="3.5" height="13" rx="1" fill="currentColor"/>
@@ -309,6 +310,6 @@
         </div>
       </div>
     </footer>
-    <script src="script.js?v=14"></script>
+    <script src="script.js?v=15"></script>
   </body>
 </html>
