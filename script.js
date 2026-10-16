@@ -9,162 +9,55 @@ if (toggle && nav) {
 }
 
 const heroMedia = document.querySelector("[data-hero-media]");
-const heroVideo = document.querySelector("[data-hero-video]");
-const heroAudio = document.querySelector("[data-hero-audio]");
-const heroSound = document.querySelector("[data-hero-sound]");
-if (heroMedia && heroVideo && heroSound) {
-  const label = heroSound.querySelector("[data-hero-sound-label]");
-  let userPaused = false;
-  let soundOn = false;
-  let autoplayNudgeDone = false;
+const heroVideo = document.getElementById("heroVideo") || document.querySelector("[data-hero-video]");
+const unmuteBtn = document.getElementById("unmuteBtn") || document.querySelector("[data-hero-sound]");
+if (heroMedia && heroVideo && unmuteBtn) {
+  const label = unmuteBtn.querySelector("[data-hero-sound-label]");
 
   const syncSoundUi = () => {
-    heroSound.setAttribute("aria-pressed", String(!soundOn));
-    heroSound.setAttribute("aria-label", soundOn ? "Mute video" : "Unmute video");
-    if (label) label.textContent = soundOn ? "Mute" : "Unmute";
+    const muted = heroVideo.muted;
+    unmuteBtn.setAttribute("aria-pressed", String(muted));
+    unmuteBtn.setAttribute("aria-label", muted ? "Unmute video" : "Mute video");
+    if (label) label.textContent = muted ? "Unmute" : "Mute";
   };
 
   const syncPlaybackUi = () => {
-    const paused = heroVideo.paused;
-    heroMedia.classList.toggle("is-paused", paused);
-    heroMedia.setAttribute("aria-label", paused ? "Play video" : "Pause video");
+    heroMedia.classList.toggle("is-paused", heroVideo.paused);
   };
 
-  const ensureAudioSrc = () => {
-    if (!heroAudio) return;
-    const src = heroAudio.getAttribute("data-src");
-    if (src && !heroAudio.getAttribute("src")) {
-      heroAudio.setAttribute("src", src);
-      heroAudio.load();
-    }
-  };
-
-  const syncAudioToVideo = () => {
-    if (!heroAudio || !soundOn) return;
-    if (Math.abs(heroAudio.currentTime - heroVideo.currentTime) > 0.35) {
-      try { heroAudio.currentTime = heroVideo.currentTime; } catch {}
-    }
-  };
-
-  const playAudio = () => {
-    if (!heroAudio || !soundOn || userPaused || heroVideo.paused) return;
-    ensureAudioSrc();
-    try { heroAudio.currentTime = heroVideo.currentTime; } catch {}
-    const attempt = heroAudio.play();
-    if (attempt && typeof attempt.catch === "function") attempt.catch(() => {});
-  };
-
-  const pauseAudio = () => {
-    if (!heroAudio) return;
-    heroAudio.pause();
-  };
-
-  // Important for Safari: do NOT spam video.play(). Competing play() calls abort
-  // Safari's native HTML autoplay. Let the autoplay attribute do the work; only
-  // nudge once if the video is still paused after it can play.
-  const nudgeAutoplayOnce = () => {
-    if (autoplayNudgeDone || userPaused || document.hidden || !heroVideo.paused) return;
-    autoplayNudgeDone = true;
-    heroVideo.defaultMuted = true;
-    heroVideo.muted = true;
-    heroVideo.playsInline = true;
-    const attempt = heroVideo.play();
-    if (attempt && typeof attempt.catch === "function") {
-      attempt.then(syncPlaybackUi).catch(syncPlaybackUi);
-    } else {
-      syncPlaybackUi();
-    }
-  };
-
-  const togglePlayback = () => {
-    if (heroVideo.paused) {
-      userPaused = false;
-      autoplayNudgeDone = false;
-      const attempt = heroVideo.play();
-      if (attempt && typeof attempt.catch === "function") {
-        attempt.then(() => {
-          syncPlaybackUi();
-          playAudio();
-        }).catch(syncPlaybackUi);
-      } else {
-        syncPlaybackUi();
-        playAudio();
-      }
-    } else {
-      userPaused = true;
-      heroVideo.pause();
-      pauseAudio();
-      syncPlaybackUi();
-    }
-  };
-
-  heroMedia.addEventListener("click", (event) => {
-    if (event.target.closest("[data-hero-sound]")) return;
-    togglePlayback();
-  });
-
-  heroMedia.addEventListener("keydown", (event) => {
-    if (event.target.closest("[data-hero-sound]")) return;
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      togglePlayback();
-    }
-  });
-
-  heroSound.addEventListener("click", (event) => {
+  // Keep this tiny: browsers autoplay from the HTML attributes.
+  // Only toggle mute/pause from real user clicks.
+  unmuteBtn.addEventListener("click", (event) => {
     event.stopPropagation();
-    soundOn = !soundOn;
-    if (soundOn) playAudio();
-    else pauseAudio();
-    if (heroVideo.paused && !userPaused) {
-      autoplayNudgeDone = false;
-      nudgeAutoplayOnce();
+    heroVideo.muted = !heroVideo.muted;
+    if (!heroVideo.muted) heroVideo.volume = 1;
+    if (heroVideo.paused) {
+      const playAttempt = heroVideo.play();
+      if (playAttempt && typeof playAttempt.catch === "function") playAttempt.catch(() => {});
     }
     syncSoundUi();
   });
 
-  heroVideo.addEventListener("playing", () => {
-    heroMedia.classList.remove("is-autoplay-blocked");
+  heroMedia.addEventListener("click", (event) => {
+    if (event.target.closest("[data-hero-sound], #unmuteBtn")) return;
+    if (heroVideo.paused) {
+      const playAttempt = heroVideo.play();
+      if (playAttempt && typeof playAttempt.catch === "function") playAttempt.catch(() => {});
+    } else {
+      heroVideo.pause();
+    }
     syncPlaybackUi();
-    playAudio();
   });
+
   heroVideo.addEventListener("play", syncPlaybackUi);
-  heroVideo.addEventListener("pause", () => {
-    pauseAudio();
-    syncPlaybackUi();
-  });
-  heroVideo.addEventListener("seeked", syncAudioToVideo);
-  heroVideo.addEventListener("timeupdate", syncAudioToVideo);
-  heroVideo.addEventListener("canplay", nudgeAutoplayOnce);
+  heroVideo.addEventListener("playing", syncPlaybackUi);
+  heroVideo.addEventListener("pause", syncPlaybackUi);
 
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      pauseAudio();
-      return;
-    }
-    if (!userPaused && heroVideo.paused) {
-      autoplayNudgeDone = false;
-      nudgeAutoplayOnce();
-    }
-  });
-
-  // Prepare silent autoplay flags before the browser's own autoplay runs.
-  heroVideo.defaultMuted = true;
   heroVideo.muted = true;
+  heroVideo.defaultMuted = true;
   heroVideo.playsInline = true;
   syncSoundUi();
   syncPlaybackUi();
-
-  // If the file is already buffered (common on repeat visits), nudge once.
-  if (heroVideo.readyState >= 3) nudgeAutoplayOnce();
-
-  // Reveal the play icon only if autoplay truly never started.
-  window.setTimeout(() => {
-    if (heroVideo.paused && !userPaused) {
-      heroMedia.classList.add("is-autoplay-blocked");
-      syncPlaybackUi();
-    }
-  }, 2500);
 }
 
 const storyPhotos = document.querySelector("[data-story-photos]");
