@@ -430,15 +430,29 @@ input, textarea, select {
 }
 
 .hero-start-label {
+  display: grid;
+  gap: 0.28rem;
   margin: 0;
-  padding: 0.7rem 1.15rem;
-  border-radius: 999px;
+  max-width: 18rem;
+  padding: 0.8rem 1.15rem;
+  border-radius: 16px;
   background: rgba(251, 254, 235, 0.94);
   color: var(--fg);
+  text-align: center;
+  box-shadow: 0 10px 28px rgba(26, 31, 20, 0.22);
+}
+
+.hero-start-title {
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  box-shadow: 0 10px 28px rgba(26, 31, 20, 0.22);
+}
+
+.hero-start-note {
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--muted);
 }
 
 .hero-playback {
