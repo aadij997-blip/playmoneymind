@@ -95,9 +95,16 @@ if (heroMedia && heroVideo && heroSound) {
   const startBootRetries = () => {
     window.clearInterval(bootTimer);
     let ticks = 0;
+    // Localhost buffers almost instantly; production Safari often keeps rejecting
+    // play() until enough of the file arrives over the network. Keep trying longer.
     bootTimer = window.setInterval(() => {
       ticks += 1;
-      if (!heroVideo.paused || userPaused || ticks > 40) {
+      if (!heroVideo.paused || userPaused) {
+        window.clearInterval(bootTimer);
+        syncPlaybackUi();
+        return;
+      }
+      if (ticks > 240) {
         window.clearInterval(bootTimer);
         syncPlaybackUi();
         return;
@@ -168,6 +175,9 @@ if (heroMedia && heroVideo && heroSound) {
   heroVideo.addEventListener("loadeddata", tryPlay);
   heroVideo.addEventListener("canplay", tryPlay);
   heroVideo.addEventListener("canplaythrough", tryPlay);
+  heroVideo.addEventListener("progress", () => {
+    if (!userPaused && heroVideo.paused) tryPlay();
+  });
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
@@ -176,6 +186,18 @@ if (heroMedia && heroVideo && heroSound) {
       tryPlay();
       startBootRetries();
     }
+  });
+
+  // Safari blocks autoplay per-website. Localhost and playmoneymind.com are
+  // different sites. Any first gesture (including Cmd) unlocks media — mirror
+  // that so production starts as soon as the user touches the page.
+  const unlockFromGesture = () => {
+    if (userPaused || !heroVideo.paused) return;
+    tryPlay();
+    startBootRetries();
+  };
+  ["pointerdown", "touchstart", "keydown"].forEach((evtName) => {
+    document.addEventListener(evtName, unlockFromGesture, { passive: true });
   });
 
   if ("IntersectionObserver" in window) {
