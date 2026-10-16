@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=86" />
+    <link rel="stylesheet" href="styles.css?v=87" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -75,6 +75,7 @@
             class="hero-video"
             data-hero-video
             src="assets/investquest-commercial-hero.mp4"
+            poster="assets/investquest-commercial-poster.jpg"
             width="1280"
             height="720"
             autoplay
@@ -111,6 +112,9 @@
               setTimeout(kick, 1500);
             })();
           </script>
+          <div class="hero-start" data-hero-start hidden>
+            <p class="hero-start-label">Press to start</p>
+          </div>
           <span class="hero-playback" data-hero-playback aria-hidden="true">
             <svg class="hero-playback-pause" viewBox="0 0 24 24">
               <rect x="6.5" y="5.5" width="3.5" height="13" rx="1" fill="currentColor"/>
@@ -333,6 +337,6 @@
         </div>
       </div>
     </footer>
-    <script src="script.js?v=20"></script>
+    <script src="script.js?v=21"></script>
   </body>
 </html>

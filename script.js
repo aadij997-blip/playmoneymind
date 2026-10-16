@@ -11,8 +11,10 @@ if (toggle && nav) {
 const heroMedia = document.querySelector("[data-hero-media]");
 const heroVideo = document.getElementById("heroVideo") || document.querySelector("[data-hero-video]");
 const unmuteBtn = document.getElementById("unmuteBtn") || document.querySelector("[data-hero-sound]");
+const heroStart = document.querySelector("[data-hero-start]");
 if (heroMedia && heroVideo && unmuteBtn) {
   const label = unmuteBtn.querySelector("[data-hero-sound-label]");
+  let hasStarted = false;
 
   const syncSoundUi = () => {
     const muted = heroVideo.muted;
@@ -22,7 +24,23 @@ if (heroMedia && heroVideo && unmuteBtn) {
   };
 
   const syncPlaybackUi = () => {
+    const waitingToStart = heroVideo.paused && !hasStarted;
     heroMedia.classList.toggle("is-paused", heroVideo.paused);
+    heroMedia.classList.toggle("is-start-blocked", waitingToStart);
+    if (heroStart) heroStart.hidden = !waitingToStart;
+  };
+
+  const startPlayback = () => {
+    const playAttempt = heroVideo.play();
+    if (playAttempt && typeof playAttempt.catch === "function") {
+      playAttempt.then(() => {
+        hasStarted = true;
+        syncPlaybackUi();
+      }).catch(syncPlaybackUi);
+    } else {
+      hasStarted = !heroVideo.paused;
+      syncPlaybackUi();
+    }
   };
 
   // Click handlers only — do not call play() on load (Safari aborts native autoplay).
@@ -30,27 +48,28 @@ if (heroMedia && heroVideo && unmuteBtn) {
     event.stopPropagation();
     heroVideo.muted = !heroVideo.muted;
     if (!heroVideo.muted) heroVideo.volume = 1;
-    if (heroVideo.paused) {
-      const playAttempt = heroVideo.play();
-      if (playAttempt && typeof playAttempt.catch === "function") playAttempt.catch(() => {});
-    }
+    if (heroVideo.paused) startPlayback();
     syncSoundUi();
   });
 
   heroMedia.addEventListener("click", (event) => {
     if (event.target.closest("[data-hero-sound], #unmuteBtn")) return;
-    if (heroVideo.paused) {
-      const playAttempt = heroVideo.play();
-      if (playAttempt && typeof playAttempt.catch === "function") playAttempt.catch(() => {});
-    } else {
+    if (heroVideo.paused) startPlayback();
+    else {
       heroVideo.pause();
+      syncPlaybackUi();
     }
-    syncPlaybackUi();
   });
 
+  heroVideo.addEventListener("playing", () => {
+    hasStarted = true;
+    syncPlaybackUi();
+  });
   heroVideo.addEventListener("play", syncPlaybackUi);
-  heroVideo.addEventListener("playing", syncPlaybackUi);
   heroVideo.addEventListener("pause", syncPlaybackUi);
+
+  // If autoplay is blocked (Low Power Mode), show the poster + "Press to start".
+  window.setTimeout(syncPlaybackUi, 700);
   syncSoundUi();
   syncPlaybackUi();
 }
