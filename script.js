@@ -10,17 +10,17 @@ if (toggle && nav) {
 
 const heroMedia = document.querySelector("[data-hero-media]");
 const heroVideo = document.querySelector("[data-hero-video]");
+const heroAudio = document.querySelector("[data-hero-audio]");
 const heroSound = document.querySelector("[data-hero-sound]");
 if (heroMedia && heroVideo && heroSound) {
   const label = heroSound.querySelector("[data-hero-sound-label]");
   let userPaused = false;
-  let soundUnlocked = false;
+  let soundOn = false;
 
   const syncSoundUi = () => {
-    const muted = heroVideo.muted || heroVideo.volume === 0;
-    heroSound.setAttribute("aria-pressed", String(muted));
-    heroSound.setAttribute("aria-label", muted ? "Unmute video" : "Mute video");
-    if (label) label.textContent = muted ? "Unmute" : "Mute";
+    heroSound.setAttribute("aria-pressed", String(!soundOn));
+    heroSound.setAttribute("aria-label", soundOn ? "Mute video" : "Unmute video");
+    if (label) label.textContent = soundOn ? "Mute" : "Unmute";
   };
 
   const syncPlaybackUi = () => {
@@ -29,32 +29,46 @@ if (heroMedia && heroVideo && heroSound) {
     heroMedia.setAttribute("aria-label", paused ? "Play video" : "Pause video");
   };
 
-  const ensureMutedForAutoplay = () => {
-    // Safari only autoplays when muted stays true until a user gesture.
-    heroVideo.defaultMuted = true;
-    heroVideo.muted = true;
-    heroVideo.volume = 0;
-    heroVideo.setAttribute("muted", "");
-    heroVideo.playsInline = true;
-    heroVideo.setAttribute("playsinline", "");
-    heroVideo.setAttribute("webkit-playsinline", "");
+  const syncAudioToVideo = () => {
+    if (!heroAudio || !soundOn) return;
+    if (Math.abs(heroAudio.currentTime - heroVideo.currentTime) > 0.35) {
+      try { heroAudio.currentTime = heroVideo.currentTime; } catch {}
+    }
+  };
+
+  const playAudio = () => {
+    if (!heroAudio || !soundOn || userPaused || heroVideo.paused) return;
+    try { heroAudio.currentTime = heroVideo.currentTime; } catch {}
+    const attempt = heroAudio.play();
+    if (attempt && typeof attempt.catch === "function") attempt.catch(() => {});
+  };
+
+  const pauseAudio = () => {
+    if (!heroAudio) return;
+    heroAudio.pause();
   };
 
   const tryPlay = () => {
     if (userPaused || document.hidden) return Promise.resolve();
-    if (!soundUnlocked) ensureMutedForAutoplay();
+
+    // Keep the video element muted — audio lives in a separate element so Safari's
+    // default "Stop Media with Sound" setting still allows autoplay.
+    heroVideo.defaultMuted = true;
+    heroVideo.muted = true;
+    heroVideo.setAttribute("muted", "");
+    heroVideo.playsInline = true;
 
     const attempt = heroVideo.play();
     if (!attempt || typeof attempt.then !== "function") {
       syncPlaybackUi();
+      playAudio();
       return Promise.resolve();
     }
 
     return attempt.then(() => {
       syncPlaybackUi();
+      playAudio();
     }).catch(() => {
-      // Retry once after the next frame — Safari often rejects the first play()
-      // while the element is still resolving layout/source.
       return new Promise((resolve) => {
         window.requestAnimationFrame(() => {
           if (userPaused || document.hidden) {
@@ -62,7 +76,6 @@ if (heroMedia && heroVideo && heroSound) {
             resolve();
             return;
           }
-          if (!soundUnlocked) ensureMutedForAutoplay();
           const retry = heroVideo.play();
           if (!retry || typeof retry.then !== "function") {
             syncPlaybackUi();
@@ -71,6 +84,7 @@ if (heroMedia && heroVideo && heroSound) {
           }
           retry.then(() => {
             syncPlaybackUi();
+            playAudio();
             resolve();
           }).catch(() => {
             syncPlaybackUi();
@@ -88,6 +102,7 @@ if (heroMedia && heroVideo && heroSound) {
     } else {
       userPaused = true;
       heroVideo.pause();
+      pauseAudio();
       syncPlaybackUi();
     }
   };
@@ -107,33 +122,38 @@ if (heroMedia && heroVideo && heroSound) {
 
   heroSound.addEventListener("click", (event) => {
     event.stopPropagation();
-    soundUnlocked = true;
-    const shouldUnmute = heroVideo.muted || heroVideo.volume === 0;
-    if (shouldUnmute) {
-      heroVideo.muted = false;
-      heroVideo.removeAttribute("muted");
-      heroVideo.volume = 1;
+    soundOn = !soundOn;
+    if (soundOn) {
+      playAudio();
     } else {
-      heroVideo.muted = true;
-      heroVideo.volume = 0;
-      heroVideo.setAttribute("muted", "");
+      pauseAudio();
     }
     if (heroVideo.paused && !userPaused) tryPlay();
     syncSoundUi();
   });
 
-  heroVideo.addEventListener("playing", syncPlaybackUi);
+  heroVideo.addEventListener("playing", () => {
+    syncPlaybackUi();
+    playAudio();
+  });
   heroVideo.addEventListener("play", syncPlaybackUi);
-  heroVideo.addEventListener("pause", syncPlaybackUi);
+  heroVideo.addEventListener("pause", () => {
+    pauseAudio();
+    syncPlaybackUi();
+  });
+  heroVideo.addEventListener("seeked", syncAudioToVideo);
+  heroVideo.addEventListener("timeupdate", syncAudioToVideo);
   heroVideo.addEventListener("loadeddata", tryPlay);
   heroVideo.addEventListener("canplay", tryPlay);
-  heroVideo.addEventListener("canplaythrough", tryPlay);
 
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden && !userPaused) tryPlay();
+    if (document.hidden) {
+      pauseAudio();
+    } else if (!userPaused) {
+      tryPlay();
+    }
   });
 
-  ensureMutedForAutoplay();
   syncSoundUi();
   tryPlay();
 }
