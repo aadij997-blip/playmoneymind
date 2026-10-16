@@ -124,6 +124,7 @@ if (heroMedia && heroVideo && heroSound) {
   });
 
   heroVideo.addEventListener("playing", () => {
+    heroMedia.classList.remove("is-autoplay-blocked");
     syncPlaybackUi();
     playAudio();
   });
@@ -164,10 +165,6 @@ if (heroMedia && heroVideo && heroSound) {
       syncPlaybackUi();
     }
   }, 2500);
-
-  heroVideo.addEventListener("playing", () => {
-    heroMedia.classList.remove("is-autoplay-blocked");
-  });
 }
 
 const storyPhotos = document.querySelector("[data-story-photos]");
