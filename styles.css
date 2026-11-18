@@ -693,7 +693,7 @@ img.photo-slot.photo-slot-short {
   border-radius: 22px;
   padding: 0.8rem 1.1rem 0.8rem 0.9rem;
   font-weight: 600;
-  font-size: 1.12rem;
+  font-size: 1.28rem;
 }
 
 .path-icon {
@@ -786,7 +786,7 @@ img.photo-slot.photo-slot-short {
 
 .metric-row span {
   color: var(--card-muted);
-  font-size: 0.82rem;
+  font-size: 0.98rem;
 }
 
 .featured-quote {
